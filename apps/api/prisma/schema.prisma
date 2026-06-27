@@ -1,6 +1,5 @@
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 generator client {
@@ -8,30 +7,51 @@ generator client {
 }
 
 model RoleChangeEvent {
-  id             BigInt   @id @default(autoincrement())
+  id             String   @id @default(uuid())
   eventId        String   @unique
   employeeId     String
   transitionType String
+  timestamp      DateTime
   oldDetails     Json
   newDetails     Json
-  status         String
+  status         String   @default("RECEIVED")
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+
+  accessReview AccessReviewRequest?
 }
 
 model AccessReviewRequest {
-  id              BigInt   @id @default(autoincrement())
-  reviewId        String   @unique
-  eventId         String
-  employeeId      String
-  status          String
-  riskLevel       String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id         String   @id @default(uuid())
+  reviewId   String   @unique
+  eventId    String   @unique
+  employeeId String
+  status     String   @default("PENDING_RECOMMENDATION")
+  riskLevel  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  roleChangeEvent RoleChangeEvent      @relation(fields: [eventId], references: [eventId])
+  recommendations RecommendationItem[]
+  auditLogs       AuditLog[]
+}
+
+model RecommendationItem {
+  id             String   @id @default(uuid())
+  reviewId       String
+  systemName     String
+  entitlementKey String
+  action         String
+  reason         String
+  policyCitation String
+  confidence     Float
+  createdAt      DateTime @default(now())
+
+  accessReview AccessReviewRequest @relation(fields: [reviewId], references: [reviewId])
 }
 
 model EmployeeEntitlement {
-  id             BigInt   @id @default(autoincrement())
+  id             String   @id @default(uuid())
   employeeId     String
   systemName     String
   entitlementKey String
@@ -39,55 +59,55 @@ model EmployeeEntitlement {
   isActive       Boolean  @default(true)
   grantedAt      DateTime
   updatedAt      DateTime @updatedAt
-}
 
-model RecommendationItem {
-  id              BigInt   @id @default(autoincrement())
-  reviewId         String
-  systemName       String
-  entitlementKey   String
-  action           String
-  reason           String
-  policyCitation   String
-  confidence       Float
-  createdAt        DateTime @default(now())
+  @@index([employeeId])
 }
 
 model ApprovalDecision {
-  id              BigInt   @id @default(autoincrement())
-  reviewId         String
-  reviewerEmail    String
-  decision         String
-  comments         String?
-  createdAt        DateTime @default(now())
+  id            String   @id @default(uuid())
+  reviewId      String
+  reviewerEmail String
+  decision      String
+  comments      String?
+  createdAt     DateTime @default(now())
+
+  @@index([reviewId])
 }
 
 model ExecutionTask {
-  id              BigInt   @id @default(autoincrement())
-  reviewId         String
-  systemName       String
-  entitlementKey   String
-  action           String
-  status           String
-  attempts         Int      @default(0)
-  lastError        String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id             String   @id @default(uuid())
+  reviewId       String
+  systemName     String
+  entitlementKey String
+  action         String
+  status         String   @default("PENDING")
+  attempts       Int      @default(0)
+  lastError      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([reviewId])
 }
 
 model AuditLog {
-  id          BigInt   @id @default(autoincrement())
-  traceId     String
-  actor       String
-  action      String
-  entityType  String
-  entityId    String
-  details     Json
-  createdAt   DateTime @default(now())
+  id         String   @id @default(uuid())
+  traceId    String
+  actor      String
+  action     String
+  entityType String
+  entityId   String
+  details    Json
+  createdAt  DateTime @default(now())
+
+  accessReviewId String?
+  accessReview   AccessReviewRequest? @relation(fields: [accessReviewId], references: [id])
+
+  @@index([traceId])
+  @@index([entityType, entityId])
 }
 
 model LlmEvaluationMetric {
-  id              BigInt   @id @default(autoincrement())
+  id               String   @id @default(uuid())
   reviewId         String
   provider         String
   modelName        String
@@ -98,4 +118,6 @@ model LlmEvaluationMetric {
   groundingScore   Float
   schemaValid      Boolean
   createdAt        DateTime @default(now())
+
+  @@index([reviewId])
 }
