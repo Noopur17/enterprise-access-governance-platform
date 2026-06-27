@@ -1,0 +1,14 @@
+{
+  "name": "enterprise-access-governance-platform",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "npm --workspace @eagp/api run start:dev",
+    "build": "npm workspaces run build",
+    "test": "npm workspaces run test"
+  }
+}

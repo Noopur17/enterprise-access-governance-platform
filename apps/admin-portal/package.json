@@ -1,0 +1,18 @@
+{
+  "name": "@eagp/admin-portal",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "vite": "^5.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "@vitejs/plugin-react": "^4.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}

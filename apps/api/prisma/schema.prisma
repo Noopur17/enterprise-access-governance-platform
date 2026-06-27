@@ -1,0 +1,101 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model RoleChangeEvent {
+  id             BigInt   @id @default(autoincrement())
+  eventId        String   @unique
+  employeeId     String
+  transitionType String
+  oldDetails     Json
+  newDetails     Json
+  status         String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model AccessReviewRequest {
+  id              BigInt   @id @default(autoincrement())
+  reviewId        String   @unique
+  eventId         String
+  employeeId      String
+  status          String
+  riskLevel       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model EmployeeEntitlement {
+  id             BigInt   @id @default(autoincrement())
+  employeeId     String
+  systemName     String
+  entitlementKey String
+  accessLevel    String
+  isActive       Boolean  @default(true)
+  grantedAt      DateTime
+  updatedAt      DateTime @updatedAt
+}
+
+model RecommendationItem {
+  id              BigInt   @id @default(autoincrement())
+  reviewId         String
+  systemName       String
+  entitlementKey   String
+  action           String
+  reason           String
+  policyCitation   String
+  confidence       Float
+  createdAt        DateTime @default(now())
+}
+
+model ApprovalDecision {
+  id              BigInt   @id @default(autoincrement())
+  reviewId         String
+  reviewerEmail    String
+  decision         String
+  comments         String?
+  createdAt        DateTime @default(now())
+}
+
+model ExecutionTask {
+  id              BigInt   @id @default(autoincrement())
+  reviewId         String
+  systemName       String
+  entitlementKey   String
+  action           String
+  status           String
+  attempts         Int      @default(0)
+  lastError        String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model AuditLog {
+  id          BigInt   @id @default(autoincrement())
+  traceId     String
+  actor       String
+  action      String
+  entityType  String
+  entityId    String
+  details     Json
+  createdAt   DateTime @default(now())
+}
+
+model LlmEvaluationMetric {
+  id              BigInt   @id @default(autoincrement())
+  reviewId         String
+  provider         String
+  modelName        String
+  latencyMs        Int
+  inputTokens      Int
+  outputTokens     Int
+  estimatedCostUsd Float
+  groundingScore   Float
+  schemaValid      Boolean
+  createdAt        DateTime @default(now())
+}

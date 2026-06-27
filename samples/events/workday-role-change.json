@@ -1,0 +1,16 @@
+{
+  "event_id": "WD-ROLE-CHANGE-2026-00088204",
+  "employee_id": "EMP-88204",
+  "transition_type": "ROLE_CHANGE",
+  "timestamp": "2026-06-25T10:30:00Z",
+  "old_details": {
+    "title": "Enterprise Account Executive",
+    "department": "Global Sales",
+    "cost_center": "CC-SALES-01"
+  },
+  "new_details": {
+    "title": "Product Marketing Manager",
+    "department": "Product Management & Marketing",
+    "cost_center": "CC-PMM-04"
+  }
+}
