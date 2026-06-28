@@ -198,4 +198,41 @@ async rejectReview(reviewId: string) {
   };
 }
 
+async createExecutionTasks(reviewId: string) {
+  const review = await this.getReviewById(reviewId);
+
+  if (review.status !== 'APPROVED') {
+    throw new Error(`Review ${reviewId} must be approved before execution tasks are created.`);
+  }
+
+  const executableRecommendations = review.recommendations.filter((item) =>
+    ['ADD', 'REMOVE'].includes(item.action),
+  );
+
+  await this.prisma.executionTask.deleteMany({
+    where: { reviewId },
+  });
+
+  const created = await this.prisma.executionTask.createMany({
+    data: executableRecommendations.map((item) => ({
+      reviewId,
+      systemName: item.systemName,
+      entitlementKey: item.entitlementKey,
+      action: item.action,
+      status: 'PENDING',
+    })),
+  });
+
+  await this.prisma.accessReviewRequest.update({
+    where: { reviewId },
+    data: { status: 'EXECUTION_PENDING' },
+  });
+
+  return {
+    reviewId,
+    tasksCreated: created.count,
+    status: 'EXECUTION_PENDING',
+  };
+}
+
 }

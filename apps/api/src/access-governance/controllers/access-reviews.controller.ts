@@ -25,4 +25,9 @@ async reject(@Param('reviewId') reviewId: string) {
   return this.accessReviewService.rejectReview(reviewId);
 }
 
+@Post(':reviewId/execution-tasks')
+async createExecutionTasks(@Param('reviewId') reviewId: string) {
+  return this.accessReviewService.createExecutionTasks(reviewId);
+}
+
 }
