@@ -151,4 +151,51 @@ const recommendations = await this.llmRecommendationService.generate({
 
     return this.getReviewById(reviewId);
   }
+
+  async approveReview(reviewId: string) {
+  const review = await this.getReviewById(reviewId);
+
+  if (review.status !== 'PENDING_APPROVAL') {
+    throw new Error(`Review ${reviewId} is not ready for approval.`);
+  }
+
+  const updated = await this.prisma.accessReviewRequest.update({
+    where: { reviewId },
+    data: { status: 'APPROVED' },
+    include: {
+      roleChangeEvent: true,
+      recommendations: true,
+      auditLogs: true,
+    },
+  });
+
+  return {
+    message: 'Access review approved. Execution tasks can now be created.',
+    review: updated,
+  };
+}
+
+async rejectReview(reviewId: string) {
+  const review = await this.getReviewById(reviewId);
+
+  if (review.status !== 'PENDING_APPROVAL') {
+    throw new Error(`Review ${reviewId} is not ready for rejection.`);
+  }
+
+  const updated = await this.prisma.accessReviewRequest.update({
+    where: { reviewId },
+    data: { status: 'REJECTED' },
+    include: {
+      roleChangeEvent: true,
+      recommendations: true,
+      auditLogs: true,
+    },
+  });
+
+  return {
+    message: 'Access review rejected. No access changes will be executed.',
+    review: updated,
+  };
+}
+
 }

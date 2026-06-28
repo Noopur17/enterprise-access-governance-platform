@@ -14,4 +14,15 @@ export class AccessReviewsController {
   async generateRecommendations(@Param('reviewId') reviewId: string) {
     return this.accessReviewService.generateRecommendations(reviewId);
   }
+
+  @Post(':reviewId/approve')
+async approve(@Param('reviewId') reviewId: string) {
+  return this.accessReviewService.approveReview(reviewId);
+}
+
+@Post(':reviewId/reject')
+async reject(@Param('reviewId') reviewId: string) {
+  return this.accessReviewService.rejectReview(reviewId);
+}
+
 }
