@@ -1,4 +1,4 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import { Controller, Get, Param, Post } from '@nestjs/common';
 import { AccessReviewService } from '../services/access-review.service';
 
 @Controller('access-reviews')
@@ -8,5 +8,10 @@ export class AccessReviewsController {
   @Get(':reviewId')
   async getByReviewId(@Param('reviewId') reviewId: string) {
     return this.accessReviewService.getReviewById(reviewId);
+  }
+
+  @Post(':reviewId/recommendations')
+  async generateRecommendations(@Param('reviewId') reviewId: string) {
+    return this.accessReviewService.generateRecommendations(reviewId);
   }
 }

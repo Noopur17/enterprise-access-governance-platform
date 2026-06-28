@@ -1,10 +1,18 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../common/database/prisma.service';
 import { CreateRoleChangeEventDto } from '../../employee-lifecycle/dto/create-role-change-event.dto';
+import { PolicyIntelligenceService } from '../../policy-intelligence/services/policy-intelligence.service';
+import { EntitlementService } from './entitlement.service';
+import { RecommendationEngineService } from './recommendation-engine.service';
 
 @Injectable()
 export class AccessReviewService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly entitlementService: EntitlementService,
+    private readonly policyIntelligenceService: PolicyIntelligenceService,
+    private readonly recommendationEngineService: RecommendationEngineService,
+  ) {}
 
   async createFromRoleChangeEvent(event: CreateRoleChangeEventDto) {
     const existing = await this.prisma.roleChangeEvent.findUnique({
@@ -18,12 +26,14 @@ export class AccessReviewService {
         eventId: existing.eventId,
         employeeId: existing.employeeId,
         status: existing.accessReview.status,
-        message: 'Duplicate role-change event detected. Returning existing access review.',
+        message:
+          'Duplicate role-change event detected. Returning existing access review.',
         duplicate: true,
       };
     }
 
-    const reviewId = `AR-${new Date().getFullYear()}-${crypto.randomUUID()
+    const reviewId = `AR-${new Date().getFullYear()}-${crypto
+      .randomUUID()
       .slice(0, 8)
       .toUpperCase()}`;
 
@@ -35,15 +45,15 @@ export class AccessReviewService {
           transitionType: event.transitionType,
           timestamp: new Date(event.timestamp),
           oldDetails: {
-  title: event.oldDetails.title,
-  department: event.oldDetails.department,
-  costCenter: event.oldDetails.costCenter,
-},
-newDetails: {
-  title: event.newDetails.title,
-  department: event.newDetails.department,
-  costCenter: event.newDetails.costCenter,
-},
+            title: event.oldDetails.title,
+            department: event.oldDetails.department,
+            costCenter: event.oldDetails.costCenter,
+          },
+          newDetails: {
+            title: event.newDetails.title,
+            department: event.newDetails.department,
+            costCenter: event.newDetails.costCenter,
+          },
           status: 'VALIDATED',
         },
       });
@@ -85,5 +95,61 @@ newDetails: {
     }
 
     return review;
+  }
+
+  async generateRecommendations(reviewId: string) {
+    const review = await this.getReviewById(reviewId);
+
+    const oldDetails = review.roleChangeEvent.oldDetails as {
+      title: string;
+      department: string;
+      costCenter: string;
+    };
+
+    const newDetails = review.roleChangeEvent.newDetails as {
+      title: string;
+      department: string;
+      costCenter: string;
+    };
+
+    const currentEntitlements =
+      await this.entitlementService.getActiveEntitlements(review.employeeId);
+
+    const policyChunks =
+      await this.policyIntelligenceService.retrieveRelevantPolicies({
+        oldDepartment: oldDetails.department,
+        oldCostCenter: oldDetails.costCenter,
+        newDepartment: newDetails.department,
+        newCostCenter: newDetails.costCenter,
+      });
+
+    const recommendations =
+      this.recommendationEngineService.generateRecommendations({
+        currentEntitlements,
+        policyChunks,
+      });
+
+    await this.prisma.$transaction([
+      this.prisma.recommendationItem.deleteMany({
+        where: { reviewId },
+      }),
+      this.prisma.recommendationItem.createMany({
+        data: recommendations.map((item) => ({
+          reviewId,
+          systemName: item.systemName,
+          entitlementKey: item.entitlementKey,
+          action: item.action,
+          reason: item.reason,
+          policyCitation: item.policyCitation,
+          confidence: item.confidence,
+        })),
+      }),
+      this.prisma.accessReviewRequest.update({
+        where: { reviewId },
+        data: { status: 'PENDING_APPROVAL' },
+      }),
+    ]);
+
+    return this.getReviewById(reviewId);
   }
 }
