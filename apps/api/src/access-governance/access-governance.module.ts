@@ -1,18 +1,14 @@
 import { Module } from '@nestjs/common';
+import { AiRecommendationModule } from '../ai-recommendation/ai-recommendation.module';
 import { PolicyIntelligenceModule } from '../policy-intelligence/policy-intelligence.module';
 import { AccessReviewsController } from './controllers/access-reviews.controller';
 import { AccessReviewService } from './services/access-review.service';
 import { EntitlementService } from './services/entitlement.service';
-import { RecommendationEngineService } from './services/recommendation-engine.service';
 
 @Module({
-  imports: [PolicyIntelligenceModule],
+  imports: [PolicyIntelligenceModule, AiRecommendationModule],
   controllers: [AccessReviewsController],
-  providers: [
-    AccessReviewService,
-    EntitlementService,
-    RecommendationEngineService,
-  ],
+  providers: [AccessReviewService, EntitlementService],
   exports: [AccessReviewService],
 })
 export class AccessGovernanceModule {}

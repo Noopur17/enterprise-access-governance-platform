@@ -10,5 +10,8 @@
     "dev:api": "npm --workspace @eagp/api run start:dev",
     "build": "npm workspaces run build",
     "test": "npm workspaces run test"
+  },
+  "dependencies": {
+    "zod": "^4.4.3"
   }
 }

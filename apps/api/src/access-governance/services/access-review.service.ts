@@ -2,8 +2,8 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../common/database/prisma.service';
 import { CreateRoleChangeEventDto } from '../../employee-lifecycle/dto/create-role-change-event.dto';
 import { PolicyIntelligenceService } from '../../policy-intelligence/services/policy-intelligence.service';
+import { LlmRecommendationService } from '../../ai-recommendation/services/llm-recommendation.service';
 import { EntitlementService } from './entitlement.service';
-import { RecommendationEngineService } from './recommendation-engine.service';
 
 @Injectable()
 export class AccessReviewService {
@@ -11,8 +11,7 @@ export class AccessReviewService {
     private readonly prisma: PrismaService,
     private readonly entitlementService: EntitlementService,
     private readonly policyIntelligenceService: PolicyIntelligenceService,
-    private readonly recommendationEngineService: RecommendationEngineService,
-  ) {}
+    private readonly llmRecommendationService: LlmRecommendationService,  ) {}
 
   async createFromRoleChangeEvent(event: CreateRoleChangeEventDto) {
     const existing = await this.prisma.roleChangeEvent.findUnique({
@@ -123,11 +122,11 @@ export class AccessReviewService {
         newCostCenter: newDetails.costCenter,
       });
 
-    const recommendations =
-      this.recommendationEngineService.generateRecommendations({
-        currentEntitlements,
-        policyChunks,
-      });
+const recommendations = await this.llmRecommendationService.generate({
+  roleChange: review.roleChangeEvent,
+  currentEntitlements,
+  policyEvidence: policyChunks,
+});
 
     await this.prisma.$transaction([
       this.prisma.recommendationItem.deleteMany({
