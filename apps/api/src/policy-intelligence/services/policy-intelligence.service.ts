@@ -1,85 +1,66 @@
-import { Injectable } from '@nestjs/common';
-import * as fs from 'fs';
-import * as path from 'path';
+import { Injectable, Logger } from '@nestjs/common';
+import {
+  RetrievedPolicyChunk,
+  VertexRagService,
+} from './vertex-rag.service';
 
-export interface PolicyChunk {
-  sectionId: string;
-  policyVersion: string;
-  text: string;
-  score: number;
-}
+export type PolicyChunk = RetrievedPolicyChunk;
 
 @Injectable()
 export class PolicyIntelligenceService {
+  private readonly logger = new Logger(PolicyIntelligenceService.name);
+
+  constructor(private readonly vertexRagService: VertexRagService) {}
+
   async retrieveRelevantPolicies(input: {
     oldDepartment: string;
     oldCostCenter: string;
     newDepartment: string;
     newCostCenter: string;
+    currentEntitlements?: Array<{
+      systemName: string;
+      entitlementKey: string;
+      accessLevel: string;
+    }>;
   }): Promise<PolicyChunk[]> {
-    const policyPath = path.join(
-      process.cwd(),
-      'data',
-      'policies',
-      'access-policy.md',
+    const query = this.buildPolicyRetrievalQuery(input);
+
+    const chunks = await this.vertexRagService.retrievePolicyChunks(query);
+
+    this.logger.log(
+      `policy_retrieval_completed provider=vertex_rag chunks=${chunks.length}`,
     );
 
-    const policyText = fs.readFileSync(policyPath, 'utf-8');
-
-    const chunks = this.chunkPolicy(policyText);
-
-    const queryTerms = [
-      input.oldDepartment,
-      input.oldCostCenter,
-      input.newDepartment,
-      input.newCostCenter,
-      'Salesforce',
-      'CRM',
-      'collaboration',
-      'market analysis',
-    ];
-
-    return chunks
-      .map((chunk) => ({
-        ...chunk,
-        score: this.scoreChunk(chunk.text, queryTerms),
-      }))
-      .filter((chunk) => chunk.score > 0)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 3);
+    return chunks;
   }
 
-  private chunkPolicy(policyText: string): PolicyChunk[] {
-    const sections = policyText.split(/\n## /).filter(Boolean);
+  private buildPolicyRetrievalQuery(input: {
+    oldDepartment: string;
+    oldCostCenter: string;
+    newDepartment: string;
+    newCostCenter: string;
+    currentEntitlements?: Array<{
+      systemName: string;
+      entitlementKey: string;
+      accessLevel: string;
+    }>;
+  }): string {
+    const entitlementSummary =
+      input.currentEntitlements
+        ?.map(
+          (item) =>
+            `${item.systemName}:${item.entitlementKey}:${item.accessLevel}`,
+        )
+        .join(', ') ?? 'No active entitlements supplied.';
 
-    return sections.map((section) => {
-      const normalized = section.startsWith('Section')
-        ? `## ${section}`
-        : section;
-
-      const sectionMatch = normalized.match(/Section\s+([0-9.]+)/);
-      const sectionId = sectionMatch?.[1] ?? 'unknown';
-
-      return {
-        sectionId,
-        policyVersion: 'v2026.2',
-        text: normalized.trim(),
-        score: 0,
-      };
-    });
-  }
-
-  private scoreChunk(text: string, queryTerms: string[]): number {
-    const lowerText = text.toLowerCase();
-
-    return queryTerms.reduce((score, term) => {
-      if (!term) return score;
-
-      const normalizedTerm = term.toLowerCase();
-
-      return lowerText.includes(normalizedTerm)
-        ? score + 1
-        : score;
-    }, 0);
+    return [
+      'Find access control policy requirements for an employee role transfer.',
+      `Old department: ${input.oldDepartment}.`,
+      `Old cost center: ${input.oldCostCenter}.`,
+      `New department: ${input.newDepartment}.`,
+      `New cost center: ${input.newCostCenter}.`,
+      `Current active entitlements: ${entitlementSummary}.`,
+      'Return policies that explain which entitlements should be removed, kept, or added.',
+    ].join(' ');
   }
 }
