@@ -35,6 +35,7 @@ model AccessReviewRequest {
   roleChangeEvent RoleChangeEvent      @relation(fields: [eventId], references: [eventId])
   recommendations RecommendationItem[]
   auditLogs       AuditLog[]
+  policyEvidence RetrievedPolicyEvidence[]
 }
 
 model RecommendationItem {
@@ -76,18 +77,36 @@ model ApprovalDecision {
 }
 
 model ExecutionTask {
-  id             String   @id @default(uuid())
-  reviewId       String
-  systemName     String
-  entitlementKey String
-  action         String
-  status         String   @default("PENDING")
-  attempts       Int      @default(0)
-  lastError      String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                String    @id @default(uuid())
+  reviewId          String
+  systemName        String
+  entitlementKey    String
+  action            String
+  status            String    @default("PENDING")
+  attempts          Int       @default(0)
+  maxAttempts       Int       @default(3)
+  lastError         String?
+  nextRunAt         DateTime  @default(now())
+  externalRequestId String?
+  executedAt        DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   @@index([reviewId])
+  @@index([status, nextRunAt])
+  @@index([systemName, status])
+}
+
+model DownstreamRateLimitWindow {
+  id           String   @id @default(uuid())
+  systemName   String
+  windowStart  DateTime
+  requestCount Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([systemName, windowStart])
+  @@index([systemName, windowStart])
 }
 
 model AuditLog {
@@ -119,6 +138,37 @@ model LlmEvaluationMetric {
   groundingScore   Float
   schemaValid      Boolean
   createdAt        DateTime @default(now())
+
+  @@index([reviewId])
+}
+
+model ProcessingJob {
+  id          String   @id @default(uuid())
+  eventId     String   @unique
+  jobType     String
+  status      String   @default("PENDING")
+  attempts    Int      @default(0)
+  maxAttempts Int      @default(3)
+  lastError   String?
+  nextRunAt   DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([status, nextRunAt])
+}
+
+model RetrievedPolicyEvidence {
+  id              String   @id @default(uuid())
+  reviewId        String
+  sectionId       String
+  policyVersion   String
+  sourceUri       String
+  similarityScore Float
+  text            String
+  provider        String   @default("VERTEX_RAG")
+  createdAt       DateTime @default(now())
+
+  accessReview AccessReviewRequest @relation(fields: [reviewId], references: [reviewId])
 
   @@index([reviewId])
 }

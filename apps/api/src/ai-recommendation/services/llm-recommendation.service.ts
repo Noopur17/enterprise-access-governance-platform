@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { z } from 'zod';
+import { PrismaService } from '../../common/database/prisma.service';
 import { EmployeeEntitlement } from '../../access-governance/services/entitlement.service';
 import { PolicyChunk } from '../../policy-intelligence/services/policy-intelligence.service';
 
@@ -16,15 +17,20 @@ const LlmRecommendationSchema = z.object({
   ),
 });
 
+type RecommendationInput = {
+  reviewId: string;
+  roleChange: unknown;
+  currentEntitlements: EmployeeEntitlement[];
+  policyEvidence: PolicyChunk[];
+};
+
 @Injectable()
 export class LlmRecommendationService {
   private readonly logger = new Logger(LlmRecommendationService.name);
 
-  async generate(input: {
-    roleChange: unknown;
-    currentEntitlements: EmployeeEntitlement[];
-    policyEvidence: PolicyChunk[];
-  }) {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async generate(input: RecommendationInput) {
     const startedAt = Date.now();
 
     const prompt = this.buildPrompt(input);
@@ -43,18 +49,36 @@ export class LlmRecommendationService {
       };
     });
 
+    const latencyMs = Date.now() - startedAt;
+    const inputTokens = this.estimateTokens(prompt);
+    const outputTokens = this.estimateTokens(JSON.stringify(rawOutput));
+    const groundingScore = this.calculateAverageGroundingScore(grounded);
+
+    await this.prisma.llmEvaluationMetric.create({
+      data: {
+        reviewId: input.reviewId,
+        provider:
+          process.env.VERTEX_RAG_MOCK_ENABLED === 'true'
+            ? 'vertex-ai-rag-mock'
+            : 'vertex-ai',
+        modelName: 'gemini-structured-recommendation',
+        latencyMs,
+        inputTokens,
+        outputTokens,
+        estimatedCostUsd: this.estimateCostUsd(inputTokens, outputTokens),
+        groundingScore,
+        schemaValid: true,
+      },
+    });
+
     this.logger.log(
-      `ai_recommendation_completed latency_ms=${Date.now() - startedAt} count=${grounded.length}`,
+      `ai_recommendation_completed review=${input.reviewId} latency_ms=${latencyMs} count=${grounded.length} grounding_score=${groundingScore}`,
     );
 
     return grounded;
   }
 
-  private buildPrompt(input: {
-    roleChange: unknown;
-    currentEntitlements: EmployeeEntitlement[];
-    policyEvidence: PolicyChunk[];
-  }): string {
+  private buildPrompt(input: RecommendationInput): string {
     return JSON.stringify(
       {
         task: 'Generate access review recommendations for an employee role change.',
@@ -104,5 +128,31 @@ export class LlmRecommendationService {
         },
       ],
     };
+  }
+
+  private estimateTokens(text: string): number {
+    return Math.ceil(text.length / 4);
+  }
+
+  private calculateAverageGroundingScore(
+    recommendations: Array<{ groundingScore: number }>,
+  ): number {
+    if (recommendations.length === 0) {
+      return 0;
+    }
+
+    const total = recommendations.reduce(
+      (sum, item) => sum + item.groundingScore,
+      0,
+    );
+
+    return Number((total / recommendations.length).toFixed(2));
+  }
+
+  private estimateCostUsd(inputTokens: number, outputTokens: number): number {
+    const estimatedInputCost = inputTokens * 0.000000125;
+    const estimatedOutputCost = outputTokens * 0.000000375;
+
+    return Number((estimatedInputCost + estimatedOutputCost).toFixed(6));
   }
 }
