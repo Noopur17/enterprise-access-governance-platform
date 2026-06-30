@@ -34,4 +34,4 @@ yarn-error.log*
 
 # Prisma/local DB
 *.db
-*.db-journal
+*.db-journalgit clean -nd

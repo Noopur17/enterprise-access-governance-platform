@@ -48,4 +48,10 @@ export class AccessReviewsController {
   async createExecutionTasks(@Param('reviewId') reviewId: string) {
     return this.accessReviewService.createExecutionTasks(reviewId);
   }
+
+  @Get()
+listReviews() {
+  return this.accessReviewService.listReviews();
+}
+
 }

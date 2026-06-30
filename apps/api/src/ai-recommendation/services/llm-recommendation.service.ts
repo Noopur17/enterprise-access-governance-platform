@@ -109,22 +109,58 @@ export class LlmRecommendationService {
           confidence: 0.94,
         },
         {
+          systemName: 'Salesforce',
+          entitlementKey: 'SALESFORCE_FORECAST_OVERRIDE',
+          action: 'REMOVE',
+          reason:
+            'Sales forecasting override access is tied to Global Sales responsibilities and is not required for the new Product Management & Marketing role.',
+          policyCitation: 'v2026.2 Section 14.4',
+          confidence: 0.9,
+        },
+        {
+          systemName: 'Revenue Reporting',
+          entitlementKey: 'REVENUE_PIPELINE_WRITE',
+          action: 'REMOVE',
+          reason:
+            'Write access to revenue pipeline records should be removed after transfer out of Global Sales to reduce conflict-of-interest and stale privilege risk.',
+          policyCitation: 'v2026.2 Section 14.4',
+          confidence: 0.88,
+        },
+        {
           systemName: 'Market Analytics',
           entitlementKey: 'MARKET_ANALYTICS_READ',
           action: 'KEEP',
           reason:
-            'Read-only market analysis access may be retained according to the retrieved policy.',
+            'Read-only market analysis access may be retained because it supports Product Management & Marketing responsibilities without allowing transactional changes.',
           policyCitation: 'v2026.2 Section 14.4',
           confidence: 0.86,
+        },
+        {
+          systemName: 'Product Telemetry',
+          entitlementKey: 'PRODUCT_TELEMETRY_READ',
+          action: 'KEEP',
+          reason:
+            'Standard product telemetry visibility is appropriate for the new department and does not create direct customer transaction write risk.',
+          policyCitation: 'v2026.2 Section 14.4',
+          confidence: 0.89,
         },
         {
           systemName: 'Collaboration Platform',
           entitlementKey: 'PRODUCT_COLLAB_BASELINE',
           action: 'ADD',
           reason:
-            'Product Management & Marketing employees require baseline collaboration access.',
+            'Product Management & Marketing employees require baseline access to common collaboration spaces for launch planning and product communication.',
           policyCitation: 'v2026.2 Section 14.4',
           confidence: 0.91,
+        },
+        {
+          systemName: 'Launch Calendar',
+          entitlementKey: 'PRODUCT_LAUNCH_CALENDAR_EDIT',
+          action: 'ADD',
+          reason:
+            'The new Product Marketing Manager role requires access to update product launch milestones and go-to-market planning timelines.',
+          policyCitation: 'v2026.2 Section 14.4',
+          confidence: 0.84,
         },
       ],
     };
