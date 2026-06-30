@@ -308,6 +308,76 @@ export class AccessReviewService {
     return this.getReviewById(reviewId);
   }
 
+  async listReviews() {
+  const reviews = await this.prisma.accessReviewRequest.findMany({
+    orderBy: {
+      createdAt: 'desc',
+    },
+    take: 100,
+    include: {
+      roleChangeEvent: true,
+      recommendations: true,
+    },
+  });
+
+  return Promise.all(
+    reviews.map(async (review) => {
+      const [latestDecision, executionTaskCount, policyEvidenceCount, auditLogCount] =
+        await Promise.all([
+          this.prisma.approvalDecision.findFirst({
+            where: { reviewId: review.reviewId },
+            orderBy: { createdAt: 'desc' },
+            select: {
+              decision: true,
+              reviewerEmail: true,
+              createdAt: true,
+            },
+          }),
+          this.prisma.executionTask.count({
+            where: { reviewId: review.reviewId },
+          }),
+          this.prisma.retrievedPolicyEvidence.count({
+            where: { reviewId: review.reviewId },
+          }),
+          this.prisma.auditLog.count({
+            where: { accessReviewId: review.id },
+          }),
+        ]);
+
+      const primaryRecommendation =
+        review.recommendations.find((item) => item.action === 'REMOVE') ||
+        review.recommendations[0];
+
+      const oldDetails = review.roleChangeEvent.oldDetails as Record<string, unknown>;
+      const newDetails = review.roleChangeEvent.newDetails as Record<string, unknown>;
+
+      return {
+        reviewId: review.reviewId,
+        eventId: review.eventId,
+        employeeId: review.employeeId,
+        status: review.status,
+        createdAt: review.createdAt,
+        updatedAt: review.updatedAt,
+        transitionType: review.roleChangeEvent.transitionType,
+        oldTitle: String(oldDetails.title || ''),
+        oldDepartment: String(oldDetails.department || ''),
+        oldCostCenter: String(oldDetails.costCenter || oldDetails.cost_center || ''),
+        newTitle: String(newDetails.title || ''),
+        newDepartment: String(newDetails.department || ''),
+        newCostCenter: String(newDetails.costCenter || newDetails.cost_center || ''),
+        recommendationCount: review.recommendations.length,
+        policyEvidenceCount,
+        executionTaskCount,
+        auditLogCount,
+        primaryAction: primaryRecommendation?.action || 'PENDING',
+        primarySystem: primaryRecommendation?.systemName || null,
+        primaryConfidence: primaryRecommendation?.confidence || null,
+        latestDecision,
+      };
+    }),
+  );
+}
+
   async submitHumanDecision(
     reviewId: string,
     decisionDto: SubmitReviewDecisionDto,
